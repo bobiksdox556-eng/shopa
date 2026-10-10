@@ -1,11 +1,10 @@
 import asyncio import logging import os import requests from aiogram import Bot, Dispatcher, types from aiogram.filters import Command from aiogram.utils.keyboard import InlineKeyboardBuilder from aiohttp import web
 BOT_TOKEN = "8866700953:AAHM-dZWnefINKCqQ33Q5qMvizPU95g7PPM" CRYPTO_PAY_TOKEN = "646400:AAOSyxIBebxoxnvym5MfQpXaB9604czr083"
-PRODUCT_PRICE = 1.0
-DIGITAL_PRODUCT_DATA = "Поздравляем с покупкой! Вот ваш текстовый материал / доступ к закрытому ресурсу."
+PRODUCT_PRICE = 1.0 DIGITAL_PRODUCT_DATA = "Поздравляем с покупкой! Вот ваш текстовый материал / доступ к закрытому ресурсу."
 bot = Bot(token=BOT_TOKEN) dp = Dispatcher()
 def create_crypto_invoice(amount_usdt: float, description: str): url = "https://crypt.bot" headers = {"Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN} data = { "asset": "USDT", "amount": str(amount_usdt), "description": description, "expires_in": 1800 } try: response = requests.post(url, headers=headers, json=data, timeout=10).json() if response.get("ok"): return response["result"]["pay_url"], response["result"]["invoice_id"] except Exception as e: logging.error(f"Error: {e}") return None, None
 def check_invoice_status(invoice_id: int): url = "https://crypt.bot" headers = {"Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN} data = {"invoice_ids": [invoice_id]} try: response = requests.post(url, headers=headers, json=data, timeout=10).json() if response.get("ok") and response["result"]["items"]: return response["result"]["items"][0]["status"] except Exception as e: logging.error(f"Error: {e}") return "active"
-@dp.message(Command("start")) async def cmd_start(message: types.Message): builder = InlineKeyboardBuilder() builder.button(text=f"💳 Купить материал (${PRODUCT_PRICE} USDT)", callback_data="buy") await message.answer( "Привет! Это автоматический магазин цифровых товаров.\n\n" "Нажми кнопку ниже, чтобы получить счет на оплату через CryptoBot:", reply_markup=builder.as_markup() )
+@dp.message(Command("start")) async def cmd_start(message: types.Message): builder = InlineKeyboardBuilder() builder.button(text=f"💳 Купить материал (${PRODUCT_PRICE} USDT)", callback_data="buy") await message.answer( "Привет! Это automatic магазин цифровых товаров.\n\n" "Нажми кнопку ниже, чтобы получить счет на оплату через CryptoBot:", reply_markup=builder.as_markup() )
 @dp.callback_query(lambda c: c.data == "buy") async def process_buy(callback: types.CallbackQuery): await callback.answer() pay_url, invoice_id = create_crypto_invoice(PRODUCT_PRICE, "Покупка цифрового материала") if not pay_url: await callback.message.answer("❌ Ошибка связи с платежным шлюзом. Попробуйте позже.") return builder = InlineKeyboardBuilder() builder.button(text="🔗 Оплатить счет (в Telegram)", url=pay_url) builder.button(text="🔄 Проверить оплату", callback_data=f"check_{invoice_id}") builder.adjust(1) await callback.message.answer( "💎 Счет успешно создан!\n\n" "1. Нажмите кнопку «Оплатить счет».\n" "2. После подтверждения вернитесь сюда и нажмите «Проверить оплату».", reply_markup=builder.as_markup() )
 @dp.callback_query(lambda c: c.data.startswith("check_")) async def process_check(callback: types.CallbackQuery): invoice_id = int(callback.data.split("_")[1]) status = check_invoice_status(invoice_id) if status == "paid": await callback.message.edit_text( "✅ Оплата успешно получена! Спасибо за покупку.\n\n" f"Ваш товар:\n\n{DIGITAL_PRODUCT_DATA}" ) else: await callback.answer("❌ Оплата еще не обнаружена. Пожалуйста, оплатите счет или подождите пару секунд.", show_alert=True)
 async def handle_web(request): return web.Response(text="Bot is running completely free!")
@@ -21,4 +20,4 @@ asyncio.create_task(site.start())
 print(f"🚀 Веб-сервер заглушки запущен на порту {port}")
 print("🚀 Бот успешно запущен и готов к продажам...")
 await dp.start_polling(bot)
-if __name__ == "main": asyncio.run(main())
+if name == "main": asyncio.run(main())
