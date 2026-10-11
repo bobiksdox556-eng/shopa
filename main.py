@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 import uuid
-import random
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
@@ -54,7 +53,7 @@ async def create_crypto_invoice(amount: int, order_id: str):
 async def cmd_start(message: Message):
     user_id = message.from_user.id
     if user_id not in users_db:
-        users_db[user_id] = 5000.00  # Бонус при старте, чтобы сразу играть
+        users_db[user_id] = 5000.00  # Дарим 5000 рублей для теста
         
     balance = users_db[user_id]
     await message.answer(
@@ -76,17 +75,20 @@ async def play_slots(callback: CallbackQuery):
     users_db[user_id] -= 100
     await callback.message.answer("🎰 Крутим барабаны...")
     
-    # Отправляем настоящий анимированный игровой автомат от Telegram
     msg = await bot.send_dice(chat_id=callback.message.chat.id, emoji="🎰")
     value = msg.dice.value
     
-    # Telegram возвращает значения от 1 до 64. Выигрышные комбинации: 1, 22, 43, 64
-    await asyncio.sleep(4) # Ждем пока анимация закончится
+    await asyncio.sleep(4)  # Ждем завершения анимации
     
+    # 1, 22, 43, 64 — это джекпоты в Telegram (три в ряд)
     if value in:
         win = 1000
         users_db[user_id] += win
-        await callback.message.answer(f"🎉 **ВЫИГРЫШ! Три в ряд!** 🎉\n Начислено: +{win} руб.\nБаланс: {users_db[user_id]} руб.", parse_mode="Markdown", reply_markup=get_main_keyboard())
+        await callback.message.answer(
+            f"🎉 **ВЫИГРЫШ! Три в ряд!** 🎉\n Начислено: +{win} руб.\nБаланс: {users_db[user_id]} руб.", 
+            parse_mode="Markdown", 
+            reply_markup=get_main_keyboard()
+        )
     else:
         await callback.message.answer(f"😢 Не повезло. Попробуйте еще раз!\nБаланс: {users_db[user_id]} руб.", reply_markup=get_main_keyboard())
 
@@ -105,18 +107,17 @@ async def play_dice(callback: CallbackQuery):
     value = msg.dice.value
     await asyncio.sleep(4)
     
-    if value >= 4: # Если выпало 4, 5 или 6 — победа
+    if value >= 4:
         win = 200
         users_db[user_id] += win
         await callback.message.answer(f" На кубике выпало {value}! **Вы выиграли!**\n Начислено: +{win} руб.", parse_mode="Markdown", reply_markup=get_main_keyboard())
     else:
         await callback.message.answer(f" На кубике выпало {value}. Проигрыш. Попробуйте снова!", reply_markup=get_main_keyboard())
 
-# ИГРА 3: ВСТРОЕННЫЙ WEBAPP ДЛЯ МИН (Используем проверенную готовую демо-графику)
+# ИГРА 3: ВСТРОЕННЫЙ WEBAPP ДЛЯ МИН
 @dp.callback_query(F.data == "play_mines")
 async def play_mines(callback: CallbackQuery):
     await callback.answer()
-    # Открываем сочную готовую графику игры в Мины со стороннего проверенного сервера
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="💣 Открыть Минное Поле", web_app=web.WebAppInfo(url="https://netlify.app"))
     ]])
@@ -164,3 +165,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
