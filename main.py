@@ -11,9 +11,11 @@ logging.basicConfig(level=logging.INFO)
 
 # Ключи берем из настроек Render
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-DATABASE_URL = os.getenv("DATABASE_URL")
 CRYPTO_BOT_TOKEN = os.getenv("CRYPTO_BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
+
+# ВСТАВЬ СВОЮ ССЫЛКУ ИЗ SUPABASE ПРЯМО СЮДА МЕЖДУ КАВЫЧЕК:
+DATABASE_URL = "ТВОЯ_ССЫЛКА_POSTGRESQL_ИЗ_SUPABASE"
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -21,8 +23,10 @@ db_pool = None
 
 async def init_db():
     global db_pool
-    db_url = DATABASE_URL.replace("postgresql://", "postgres://") if DATABASE_URL else DATABASE_URL
+    # Жестко прописываем замену протокола для стабильности asyncpg
+    db_url = DATABASE_URL.replace("postgresql://", "postgres://")
     db_pool = await asyncpg.create_pool(db_url)
+    logging.info("База данных успешно подключена напрямую из кода!")
 
 def get_main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
