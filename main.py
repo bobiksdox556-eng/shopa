@@ -4,11 +4,11 @@ import os
 import uuid
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, WebAppInfo
 
 logging.basicConfig(level=logging.INFO)
 
-# Ключи берем из настроек Render
+# Ключи берутся автоматически из настроек Render
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CRYPTO_BOT_TOKEN = os.getenv("CRYPTO_BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
@@ -16,17 +16,17 @@ PORT = int(os.getenv("PORT", 10000))
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# База данных прямо в памяти (балансы и платежи)
+# Хранилище прямо в памяти сервера (балансы и платежи)
 users_db = {}     
 payments_db = {}  
 
-# Главное меню казино
+# Главная меню-клавиатура с сочными играми
 def get_main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎰 Играть в Слоты (100 руб)", callback_data="play_slots")],
+        [InlineKeyboardButton(text="💣 МИНЫ (Сочная WebApp Графика) 💥", web_app=WebAppInfo(url="https://minesweeper-game.netlify.app"))],
+        [InlineKeyboardButton(text="🎰 Крутить Слоты (100 руб)", callback_data="play_slots")],
         [InlineKeyboardButton(text="🎲 Бросить Кости (100 руб)", callback_data="play_dice")],
-        [InlineKeyboardButton(text="💣 Проверить Мины (🤖 WebApp)", callback_data="play_mines")],
-        [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="deposit_crypto")]
+        [InlineKeyboardButton(text="💰 Пополнить баланс через CryptoBot", callback_data="deposit_crypto")]
     ])
 
 async def create_crypto_invoice(amount: int, order_id: str):
@@ -53,46 +53,42 @@ async def create_crypto_invoice(amount: int, order_id: str):
 async def cmd_start(message: Message):
     user_id = message.from_user.id
     if user_id not in users_db:
-        users_db[user_id] = 5000.00  # Дарим 5000 рублей для теста
+        users_db[user_id] = 5000.00  # Дарим 5000 рублей каждому игроку для теста
         
     balance = users_db[user_id]
     await message.answer(
         f"🎰 **ДОБРО ПОЖАЛОВАТЬ В PREMIUM CASINO!** 🎰\n\n"
-        f"💵 Ваш баланс: **{balance} руб.**\n\n"
-        f"Выбирайте игру ниже и крутите удачу:", 
+        f"💵 Ваш текущий баланс: **{balance} руб.**\n\n"
+        f"Нажмите кнопку ниже, чтобы открыть сочную графическую игру или испытать удачу в классических слотах:", 
         parse_mode="Markdown", 
         reply_markup=get_main_keyboard()
     )
 
-# ИГРА 1: АНИМИРОВАННЫЕ СЛОТЫ TELEGRAM
+# ИГРА: АНИМИРОВАННЫЕ СЛОТЫ TELEGRAM
 @dp.callback_query(F.data == "play_slots")
 async def play_slots(callback: CallbackQuery):
     user_id = callback.from_user.id
     if users_db.get(user_id, 0) < 100:
-        await callback.answer("❌ Недостаточно баланса! Пополните счет.", show_alert=True)
+        await callback.answer("❌ Недостаточно баланса для ставки!", show_alert=True)
         return
         
     users_db[user_id] -= 100
-    await callback.message.answer("🎰 Крутим барабаны...")
+    await callback.message.answer("🎰 Барабаны вращаются...")
     
     msg = await bot.send_dice(chat_id=callback.message.chat.id, emoji="🎰")
     value = msg.dice.value
     
-    await asyncio.sleep(4)  # Ждем завершения анимации
+    await asyncio.sleep(4)  # Ожидание окончания прокрутки
     
-    # 1, 22, 43, 64 — это джекпоты в Telegram (три в ряд)
-    if value in:
-        win = 1000
+    # Исправленное синтаксическое условие комбинаций (1, 22, 43, 64)
+    if value in [1, 22, 43, 64]:
+        win = 2500
         users_db[user_id] += win
-        await callback.message.answer(
-            f"🎉 **ВЫИГРЫШ! Три в ряд!** 🎉\n Начислено: +{win} руб.\nБаланс: {users_db[user_id]} руб.", 
-            parse_mode="Markdown", 
-            reply_markup=get_main_keyboard()
-        )
+        await callback.message.answer(f"🎉 **💥 ДЖЕКПОТ! ТРИ В РЯД! 💥** 🎉\n\nВы выиграли: +**{win} руб.**\nНовый баланс: **{users_db[user_id]} руб.**", parse_mode="Markdown", reply_markup=get_main_keyboard())
     else:
-        await callback.message.answer(f"😢 Не повезло. Попробуйте еще раз!\nБаланс: {users_db[user_id]} руб.", reply_markup=get_main_keyboard())
+        await callback.message.answer(f"😢 Мимо! Попробуйте еще раз.\nВаш баланс: **{users_db[user_id]} руб.**", parse_mode="Markdown", reply_markup=get_main_keyboard())
 
-# ИГРА 2: ЖИВЫЕ КУБИКИ
+# ИГРА: КУБИКИ
 @dp.callback_query(F.data == "play_dice")
 async def play_dice(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -101,7 +97,7 @@ async def play_dice(callback: CallbackQuery):
         return
         
     users_db[user_id] -= 100
-    await callback.message.answer("🎲 Бросаем кости...")
+    await callback.message.answer("🎲 Кости брошены...")
     
     msg = await bot.send_dice(chat_id=callback.message.chat.id, emoji="🎲")
     value = msg.dice.value
@@ -110,20 +106,11 @@ async def play_dice(callback: CallbackQuery):
     if value >= 4:
         win = 200
         users_db[user_id] += win
-        await callback.message.answer(f" На кубике выпало {value}! **Вы выиграли!**\n Начислено: +{win} руб.", parse_mode="Markdown", reply_markup=get_main_keyboard())
+        await callback.message.answer(f" На кубике выпало {value}! **Победа!**\nВы выиграли: +**{win} руб.**", parse_mode="Markdown", reply_markup=get_main_keyboard())
     else:
-        await callback.message.answer(f" На кубике выпало {value}. Проигрыш. Попробуйте снова!", reply_markup=get_main_keyboard())
+        await callback.message.answer(f" На кубике выпало {value}. Проигрыш. Баланс: **{users_db[user_id]} руб.**", parse_mode="Markdown", reply_markup=get_main_keyboard())
 
-# ИГРА 3: ВСТРОЕННЫЙ WEBAPP ДЛЯ МИН
-@dp.callback_query(F.data == "play_mines")
-async def play_mines(callback: CallbackQuery):
-    await callback.answer()
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="💣 Открыть Минное Поле", web_app=web.WebAppInfo(url="https://netlify.app"))
-    ]])
-    await callback.message.answer(" Нажмите кнопку ниже, чтобы открыть графическое поле игры **Мины**:", reply_markup=kb)
-
-# ПОПОЛНЕНИЕ БАЛАНСА
+# ОПЛАТА КРИПТОЙ
 @dp.callback_query(F.data == "deposit_crypto")
 async def process_deposit(callback: CallbackQuery):
     await callback.answer()
@@ -135,9 +122,9 @@ async def process_deposit(callback: CallbackQuery):
     pay_url = await create_crypto_invoice(amount, order_id)
     if pay_url:
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💸 Оплатить через CryptoBot", url=pay_url)]])
-        await callback.message.answer(f"Счет на 500 руб. создан.\nНажмите кнопку для оплаты:", reply_markup=kb)
+        await callback.message.answer(f"Счет на пополнение (500 руб.) успешно создан.\nНажмите кнопку для оплаты:", reply_markup=kb)
     else:
-        await callback.message.answer("❌ Ошибка платежки. Проверьте CRYPTO_BOT_TOKEN.")
+        await callback.message.answer("❌ Ошибка генерации счета. Проверьте ваш токен CRYPTO_BOT_TOKEN на Render.")
 
 async def handle_crypto_webhook(request):
     try:
@@ -165,4 +152,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
