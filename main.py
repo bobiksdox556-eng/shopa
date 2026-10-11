@@ -16,9 +16,9 @@ PORT = int(os.getenv("PORT", 10000))
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# ВРЕМЕННАЯ БАЗА ДАННЫХ ПРЯМО В ПАМЯТИ СЕРВЕРА
-users_db = {}     # Тут храним балансы {user_id: balance}
-payments_db = {}  # Тут храним платежи {order_id: {"user_id": user_id, "amount": amount, "status": status}}
+# Временная база данных в памяти сервера
+users_db = {}     
+payments_db = {}  
 
 def get_main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -26,26 +26,33 @@ def get_main_keyboard():
     ])
 
 async def create_crypto_invoice(amount: int, order_id: str):
-    headers = {"Crypto-Pay-API-Token": CRYPTO_BOT_TOKEN}
+    headers = {
+        "Crypto-Pay-API-Token": CRYPTO_BOT_TOKEN,
+        "Content-Type": "application/json"
+    }
     payload = {
         "asset": "USDT",
-        "amount": str(amount / 100),
+        "amount": str(amount / 100), # 500 рублей = примерно 5.00 USDT для теста
         "payload": order_id
     }
+    
     import aiohttp
     async with aiohttp.ClientSession() as session:
-        url = "https://cryptofay.io" if "test" in CRYPTO_BOT_TOKEN else "https://cryptobot.app"
+        # Проверяем, тестовый токен или настоящий
+        is_test = "test" in CRYPTO_BOT_TOKEN.lower() or CRYPTO_BOT_TOKEN.startswith("T-")
+        url = "https://testnet-pay.crypt.bot/api/createInvoice" if is_test else "https://pay.crypt.bot/api/createInvoice"
+        
+        logging.info(f"Отправка запроса к CryptoBot API: {url}")
         async with session.post(url, json=payload, headers=headers) as resp:
             res = await resp.json()
-            if res.get("result"):
+            logging.info(f"Ответ от CryptoBot API: {res}")
+            if res.get("ok") and res.get("result"):
                 return res["result"]["pay_url"]
     return None
 
 @dp.message(F.text == "/start")
 async def cmd_start(message: Message):
     user_id = message.from_user.id
-    
-    # Если пользователя нет в нашей памяти — даем ему 0 рублей
     if user_id not in users_db:
         users_db[user_id] = 0.00
         
@@ -59,7 +66,6 @@ async def process_deposit(callback: CallbackQuery):
     order_id = str(uuid.uuid4())
     amount = 500
 
-    # Сохраняем платеж в память
     payments_db[order_id] = {
         "user_id": user_id,
         "amount": amount,
@@ -71,7 +77,7 @@ async def process_deposit(callback: CallbackQuery):
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💸 Оплатить", url=pay_url)]])
         await callback.message.answer(f"Заявка создана. Сумма: **{amount} руб.**\nНажмите кнопку для оплаты:", parse_mode="Markdown", reply_markup=kb)
     else:
-        await callback.message.answer("❌ Ошибка генерации счета. Проверьте CRYPTO_BOT_TOKEN в Render.")
+        await callback.message.answer("❌ Ошибка генерации счета. Проверьте правильность CRYPTO_BOT_TOKEN в Render.")
 
 async def handle_crypto_webhook(request):
     try:
@@ -79,13 +85,11 @@ async def handle_crypto_webhook(request):
         if data.get("update_type") == "invoice_paid":
             payload = data["update_object"]["payload"]
             
-            # Проверяем платеж в памяти
             payment = payments_db.get(payload)
             if payment and payment['status'] == 'pending':
                 payment['status'] = 'success'
                 user_id = payment['user_id']
                 
-                # Начисляем баланс в памяти
                 if user_id in users_db:
                     users_db[user_id] += float(payment['amount'])
                 else:
@@ -102,7 +106,7 @@ async def main():
     runner = web.AppRunner(app)
     await runner.setup()
     await web.TCPSite(runner, '0.0.0.0', PORT).start()
-    logging.info("Бот успешно запущен в упрощенном режиме!")
+    logging.info("Бот запущен на правильных эндпоинтах CryptoBot!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
