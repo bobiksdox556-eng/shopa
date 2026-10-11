@@ -22,16 +22,14 @@ async def init_db():
     global db_pool
     
     # === НАСТРОЙКА БАЗЫ ДАННЫХ ===
-    # Заполни ровно эти 2 строчки внутри кавычек:
-    
+    # Просто впиши свой пароль от базы данных Supabase между кавычек:
     SUPABASE_PASSWORD = "Kristinabelozerskaya"
-    SUPABASE_PROJECT_ID = "arthejhklkqfdcqjgqaz"
     
-    # Код сам автоматически соберет идеальную ссылку без ошибок
-    db_url = f"postgres://postgres.{SUPABASE_PROJECT_ID}:{SUPABASE_PASSWORD}@://supabase.com"
+    # Прямой и самый надежный хост Supabase
+    db_url = f"postgres://postgres.arthejhklkqfdcqjgqaz:{SUPABASE_PASSWORD}@db.arthejhklkqfdcqjgqaz.supabase.co:5432/postgres"
 
     db_pool = await asyncpg.create_pool(db_url)
-    logging.info("База данных успешно подключена по автоматической ссылке!")
+    logging.info("База данных успешно подключена напрямую!")
 
 def get_main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
