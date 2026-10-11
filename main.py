@@ -22,7 +22,7 @@ async def init_db():
     global db_pool
     # ВСТАВЬ СВОЮ ДЛИННУЮ ССЫЛКУ МЕЖДУ КАВЫЧЕК.
     # Пример правильного формата: "postgresql://postgres.xxxx:[YOUR-PASSWORD]@://supabase.com"
-    raw_url = "postgresql://postgres:[YOUR-PASSWORD]@db.arthejhklkqfdcqjgqaz.supabase.co:5432/postgres"
+    raw_url = "postgresql://postgres:[Kristinabelozerskaya]@db.arthejhklkqfdcqjgqaz.supabase.co:5432/postgres"
     
     if raw_url.startswith("postgresql://"):
         db_url = raw_url.replace("postgresql://", "postgres://", 1)
