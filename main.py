@@ -25,11 +25,11 @@ async def init_db():
     # Просто впиши свой пароль от базы данных Supabase между кавычек:
     SUPABASE_PASSWORD = "Kristinabelozerskaya"
     
-    # Прямой и самый надежный хост Supabase
-    db_url = f"postgres://postgres.arthejhklkqfdcqjgqaz:{SUPABASE_PASSWORD}@db.arthejhklkqfdcqjgqaz.supabase.co:5432/postgres"
+    # Используем пул-сервер (pooler) вместо прямого хоста, чтобы обойти Network Is Unreachable на Render
+    db_url = f"postgres://postgres.arthejhklkqfdcqjgqaz:{SUPABASE_PASSWORD}@://supabase.com"
 
     db_pool = await asyncpg.create_pool(db_url)
-    logging.info("База данных успешно подключена напрямую!")
+    logging.info("База данных успешно подключена через пул-сервер!")
 
 def get_main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
