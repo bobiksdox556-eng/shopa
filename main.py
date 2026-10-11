@@ -2,13 +2,14 @@ import asyncio
 import logging
 import os
 import uuid
+import random
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
 logging.basicConfig(level=logging.INFO)
 
-# Берем токены напрямую из настроек Render
+# Ключи берем из настроек Render
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CRYPTO_BOT_TOKEN = os.getenv("CRYPTO_BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
@@ -16,13 +17,17 @@ PORT = int(os.getenv("PORT", 10000))
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Временная база данных в памяти сервера
+# База данных прямо в памяти (балансы и платежи)
 users_db = {}     
 payments_db = {}  
 
+# Главное меню казино
 def get_main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💰 Пополнить через CryptoBot", callback_data="deposit_crypto")]
+        [InlineKeyboardButton(text="🎰 Играть в Слоты (100 руб)", callback_data="play_slots")],
+        [InlineKeyboardButton(text="🎲 Бросить Кости (100 руб)", callback_data="play_dice")],
+        [InlineKeyboardButton(text="💣 Проверить Мины (🤖 WebApp)", callback_data="play_mines")],
+        [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="deposit_crypto")]
     ])
 
 async def create_crypto_invoice(amount: int, order_id: str):
@@ -32,20 +37,15 @@ async def create_crypto_invoice(amount: int, order_id: str):
     }
     payload = {
         "asset": "USDT",
-        "amount": str(amount / 100), # 500 рублей = примерно 5.00 USDT для теста
+        "amount": str(amount / 100),
         "payload": order_id
     }
-    
     import aiohttp
     async with aiohttp.ClientSession() as session:
-        # Проверяем, тестовый токен или настоящий
         is_test = "test" in CRYPTO_BOT_TOKEN.lower() or CRYPTO_BOT_TOKEN.startswith("T-")
-        url = "https://testnet-pay.crypt.bot/api/createInvoice" if is_test else "https://pay.crypt.bot/api/createInvoice"
-        
-        logging.info(f"Отправка запроса к CryptoBot API: {url}")
+        url = "https://crypt.bot" if is_test else "https://crypt.bot"
         async with session.post(url, json=payload, headers=headers) as resp:
             res = await resp.json()
-            logging.info(f"Ответ от CryptoBot API: {res}")
             if res.get("ok") and res.get("result"):
                 return res["result"]["pay_url"]
     return None
@@ -54,59 +54,112 @@ async def create_crypto_invoice(amount: int, order_id: str):
 async def cmd_start(message: Message):
     user_id = message.from_user.id
     if user_id not in users_db:
-        users_db[user_id] = 0.00
+        users_db[user_id] = 5000.00  # Бонус при старте, чтобы сразу играть
         
     balance = users_db[user_id]
-    await message.answer(f"🎰 **Casino Bot**\n\n💵 Баланс: **{balance} руб.**", parse_mode="Markdown", reply_markup=get_main_keyboard())
+    await message.answer(
+        f"🎰 **ДОБРО ПОЖАЛОВАТЬ В PREMIUM CASINO!** 🎰\n\n"
+        f"💵 Ваш баланс: **{balance} руб.**\n\n"
+        f"Выбирайте игру ниже и крутите удачу:", 
+        parse_mode="Markdown", 
+        reply_markup=get_main_keyboard()
+    )
 
+# ИГРА 1: АНИМИРОВАННЫЕ СЛОТЫ TELEGRAM
+@dp.callback_query(F.data == "play_slots")
+async def play_slots(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    if users_db.get(user_id, 0) < 100:
+        await callback.answer("❌ Недостаточно баланса! Пополните счет.", show_alert=True)
+        return
+        
+    users_db[user_id] -= 100
+    await callback.message.answer("🎰 Крутим барабаны...")
+    
+    # Отправляем настоящий анимированный игровой автомат от Telegram
+    msg = await bot.send_dice(chat_id=callback.message.chat.id, emoji="🎰")
+    value = msg.dice.value
+    
+    # Telegram возвращает значения от 1 до 64. Выигрышные комбинации: 1, 22, 43, 64
+    await asyncio.sleep(4) # Ждем пока анимация закончится
+    
+    if value in:
+        win = 1000
+        users_db[user_id] += win
+        await callback.message.answer(f"🎉 **ВЫИГРЫШ! Три в ряд!** 🎉\n Начислено: +{win} руб.\nБаланс: {users_db[user_id]} руб.", parse_mode="Markdown", reply_markup=get_main_keyboard())
+    else:
+        await callback.message.answer(f"😢 Не повезло. Попробуйте еще раз!\nБаланс: {users_db[user_id]} руб.", reply_markup=get_main_keyboard())
+
+# ИГРА 2: ЖИВЫЕ КУБИКИ
+@dp.callback_query(F.data == "play_dice")
+async def play_dice(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    if users_db.get(user_id, 0) < 100:
+        await callback.answer("❌ Недостаточно баланса!", show_alert=True)
+        return
+        
+    users_db[user_id] -= 100
+    await callback.message.answer("🎲 Бросаем кости...")
+    
+    msg = await bot.send_dice(chat_id=callback.message.chat.id, emoji="🎲")
+    value = msg.dice.value
+    await asyncio.sleep(4)
+    
+    if value >= 4: # Если выпало 4, 5 или 6 — победа
+        win = 200
+        users_db[user_id] += win
+        await callback.message.answer(f" На кубике выпало {value}! **Вы выиграли!**\n Начислено: +{win} руб.", parse_mode="Markdown", reply_markup=get_main_keyboard())
+    else:
+        await callback.message.answer(f" На кубике выпало {value}. Проигрыш. Попробуйте снова!", reply_markup=get_main_keyboard())
+
+# ИГРА 3: ВСТРОЕННЫЙ WEBAPP ДЛЯ МИН (Используем проверенную готовую демо-графику)
+@dp.callback_query(F.data == "play_mines")
+async def play_mines(callback: CallbackQuery):
+    await callback.answer()
+    # Открываем сочную готовую графику игры в Мины со стороннего проверенного сервера
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="💣 Открыть Минное Поле", web_app=web.WebAppInfo(url="https://netlify.app"))
+    ]])
+    await callback.message.answer(" Нажмите кнопку ниже, чтобы открыть графическое поле игры **Мины**:", reply_markup=kb)
+
+# ПОПОЛНЕНИЕ БАЛАНСА
 @dp.callback_query(F.data == "deposit_crypto")
 async def process_deposit(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
     order_id = str(uuid.uuid4())
     amount = 500
-
-    payments_db[order_id] = {
-        "user_id": user_id,
-        "amount": amount,
-        "status": "pending"
-    }
+    payments_db[order_id] = {"user_id": user_id, "amount": amount, "status": "pending"}
 
     pay_url = await create_crypto_invoice(amount, order_id)
     if pay_url:
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💸 Оплатить", url=pay_url)]])
-        await callback.message.answer(f"Заявка создана. Сумма: **{amount} руб.**\nНажмите кнопку для оплаты:", parse_mode="Markdown", reply_markup=kb)
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💸 Оплатить через CryptoBot", url=pay_url)]])
+        await callback.message.answer(f"Счет на 500 руб. создан.\nНажмите кнопку для оплаты:", reply_markup=kb)
     else:
-        await callback.message.answer("❌ Ошибка генерации счета. Проверьте правильность CRYPTO_BOT_TOKEN в Render.")
+        await callback.message.answer("❌ Ошибка платежки. Проверьте CRYPTO_BOT_TOKEN.")
 
 async def handle_crypto_webhook(request):
     try:
         data = await request.json()
         if data.get("update_type") == "invoice_paid":
             payload = data["update_object"]["payload"]
-            
             payment = payments_db.get(payload)
             if payment and payment['status'] == 'pending':
                 payment['status'] = 'success'
                 user_id = payment['user_id']
-                
-                if user_id in users_db:
-                    users_db[user_id] += float(payment['amount'])
-                else:
-                    users_db[user_id] = float(payment['amount'])
-                    
+                users_db[user_id] = users_db.get(user_id, 0) + float(payment['amount'])
                 await bot.send_message(chat_id=user_id, text="✅ Баланс успешно пополнен через CryptoBot!")
         return web.Response(text="OK", status=200)
     except Exception:
         return web.Response(text="Error", status=400)
 
 async def main():
+    await bot.delete_webhook(drop_pending_updates=True)
     app = web.Application()
     app.router.add_post('/webhook/crypto', handle_crypto_webhook)
     runner = web.AppRunner(app)
     await runner.setup()
     await web.TCPSite(runner, '0.0.0.0', PORT).start()
-    logging.info("Бот запущен на правильных эндпоинтах CryptoBot!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
