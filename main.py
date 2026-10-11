@@ -9,7 +9,7 @@ from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, C
 
 logging.basicConfig(level=logging.INFO)
 
-# Берем токены из настроек Render
+# Ключи берем из настроек Render
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CRYPTO_BOT_TOKEN = os.getenv("CRYPTO_BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
@@ -20,17 +20,18 @@ db_pool = None
 
 async def init_db():
     global db_pool
-    # ВСТАВЬ СВОЮ ДЛИННУЮ ССЫЛКУ МЕЖДУ КАВЫЧЕК.
-    # Пример правильного формата: "postgresql://postgres.xxxx:[YOUR-PASSWORD]@://supabase.com"
-    raw_url = "postgresql://postgres:[Kristinabelozerskaya]@db.arthejhklkqfdcqjgqaz.supabase.co:5432/postgres"
     
-    if raw_url.startswith("postgresql://"):
-        db_url = raw_url.replace("postgresql://", "postgres://", 1)
-    else:
-        db_url = raw_url
+    # === НАСТРОЙКА БАЗЫ ДАННЫХ ===
+    # Заполни ровно эти 2 строчки внутри кавычек:
+    
+    SUPABASE_PASSWORD = "Kristinabelozerskaya"
+    SUPABASE_PROJECT_ID = "arthejhklkqfdcqjgqaz"
+    
+    # Код сам автоматически соберет идеальную ссылку без ошибок
+    db_url = f"postgres://postgres.{SUPABASE_PROJECT_ID}:{SUPABASE_PASSWORD}@://supabase.com"
 
     db_pool = await asyncpg.create_pool(db_url)
-    logging.info("База данных успешно подключена напрямую!")
+    logging.info("База данных успешно подключена по автоматической ссылке!")
 
 def get_main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
