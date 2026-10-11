@@ -20,15 +20,10 @@ db_pool = None
 
 async def init_db():
     global db_pool
-    # ВСТАВЬ СВОЮ ДЛИННУЮ ССЫЛКУ ИЗ SUPABASE НАПРЯМУЮ СЮДА МЕЖДУ КАВЫЧЕК.
-    # Она ОБЯЗАТЕЛЬНО должна начинаться с postgresql:// или postgres://
-    raw_url = "# Connect to Postgres via the shared transaction-mode pooler (IPv4-only)
-DATABASE_URL="postgresql://postgres.arthejhklkqfdcqjgqaz:[YOUR-PASSWORD]@aws-1-eu-west-3.pooler.supabase.com:6543/postgres?pgbouncer=true"
-
-# Connect to Postgres via the shared session-mode pooler (used for migrations)
-DIRECT_URL="postgresql://postgres.arthejhklkqfdcqjgqaz:[YOUR-PASSWORD]@aws-1-eu-west-3.pooler.supabase.com:5432/postgres""
+    # ВСТАВЬ СВОЮ ДЛИННУЮ ССЫЛКУ МЕЖДУ КАВЫЧЕК.
+    # Пример правильного формата: "postgresql://postgres.xxxx:[YOUR-PASSWORD]@://supabase.com"
+    raw_url = "postgresql://postgres:[YOUR-PASSWORD]@db.arthejhklkqfdcqjgqaz.supabase.co:5432/postgres"
     
-    # Автоматически исправляем протокол для библиотеки asyncpg
     if raw_url.startswith("postgresql://"):
         db_url = raw_url.replace("postgresql://", "postgres://", 1)
     else:
